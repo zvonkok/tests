@@ -5,6 +5,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
+set -x
 
 export KATA_KSM_THROTTLER=${KATA_KSM_THROTTLER:-no}
 export KATA_QEMU_DESTDIR=${KATA_QEMU_DESTDIR:-"/usr"}

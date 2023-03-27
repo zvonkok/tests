@@ -86,6 +86,7 @@ while [[ $# -ne 0 ]]; do
 done
 
 tests_repo="${tests_repo:-github.com/kata-containers/tests}"
+tests_branch="${tests_branch:-main}"
 katacontainers_repo="${katacontainers_repo:-github.com/kata-containers/kata-containers}"
 
 if [ "${kata_repo}" == "${katacontainers_repo}" ]; then
@@ -123,6 +124,11 @@ tests_repo_dir="${GOPATH}/src/${tests_repo}"
 # Get the tests repository
 mkdir -p $(dirname "${tests_repo_dir}")
 [ -d "${tests_repo_dir}" ] || git clone "https://${tests_repo}.git" "${tests_repo_dir}"
+(
+	cd ${tests_repo_dir}
+	git checkout ${tests_branch}
+	git reset --hard
+)
 
 arch=$("${tests_repo_dir}/.ci/kata-arch.sh")
 

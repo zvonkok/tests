@@ -25,6 +25,13 @@ HYPERVISOR=
 MACHINE_TYPE=
 IMAGE_TYPE=
 
+# Option to choose an alternative PCI device for the VFIO test
+VFIO_PCI_CLASS=${VFIO_PCI_CLASS:-"Ethernet controller"}
+VFIO_PCI_NAME=${VFIO_PCI_NAME:-"Virtio network device"}
+VFIO_CHECK_GUEST_KERNEL=${VFIO_CHECK_GUEST_KERNEL:-"ip a | grep \"eth\" || die \"Missing VFIO network interface\""}
+VFIO_HOTPLUG=${VFIO_HOTPLUG:-"bridge-port"}
+VFIO_CHECK_NUM_DEVICES=${VFIO_CHECK_NUM_DEVICES:-"2"}
+
 cleanup() {
 	clean_env_ctr
 	sudo rm -rf "${tmp_data_dir}"
@@ -33,7 +40,7 @@ cleanup() {
 }
 
 host_pci_addr() {
-	lspci -D | grep "Ethernet controller" | grep "Virtio network device" | tail -1 | cut -d' ' -f1
+	lspci -D | grep "${VFIO_PCI_CLASS}" | grep "${VFIO_PCI_NAME}" | tail -1 | cut -d' ' -f1
 }
 
 get_vfio_path() {
@@ -87,7 +94,7 @@ check_guest_kernel() {
 	# For vfio_mode=guest-kernel, the device should be bound to
 	# the guest kernel's native driver.  To check this has worked,
 	# we look for an ethernet device named 'eth*'
-	get_ctr_cmd_output "${container_id}" ip a | grep "eth" || die "Missing VFIO network interface"
+	get_ctr_cmd_output "${container_id}" ash -c "${VFIO_CHECK_GUEST_KERNEL}"
 }
 
 check_vfio() {
@@ -113,8 +120,8 @@ check_vfio() {
 	# There should be two devices in the IOMMU group: the ethernet
 	# device we care about, plus the PCIe to PCI bridge device
 	devs="$(get_ctr_cmd_output "${cid}" ls /sys/kernel/iommu_groups/"${group}"/devices)"
-	if [ $(echo "${devs}" | wc -w) != "2" ] ; then
-	    die "Expected exactly two devices got: ${devs}"
+        if [ $(echo "${devs}" | wc -w) != ${VFIO_CHECK_NUM_DEVICES} ] ; then
+            die "Expected exactly ${VFIO_CHECK_NUM_DEVICES} device(s) got: ${devs}"
 	fi
 
 	# The bridge device will always sort first, because it is on
@@ -192,6 +199,12 @@ setup_configuration_file() {
 			warn "Variable machine_type only applies to qemu. It will be ignored"
 		fi
 	fi
+
+        if [ "${VFIO_HOTPLUG}" = "root-port" ]; then
+                sed -i 's|^#hotplug_vfio_on_root_bus.*|hotplug_vfio = "root-port"|g' "${kata_config_file}"
+                sed -i 's|^#pcie_root_port.*|pcie_root_port = 4|g' "${kata_config_file}"
+                cat "${kata_config_file}" | grep -v '#' | grep -v '^$'
+        fi
 
 	if [ -n "${SANDBOX_CGROUP_ONLY}" ]; then
 	   sed -i 's|^sandbox_cgroup_only.*|sandbox_cgroup_only='${SANDBOX_CGROUP_ONLY}'|g' "${kata_config_file}"
