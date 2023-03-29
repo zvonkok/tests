@@ -35,8 +35,8 @@ VFIO_CHECK_NUM_DEVICES=${VFIO_CHECK_NUM_DEVICES:-"2"}
 cleanup() {
 	clean_env_ctr
 	sudo rm -rf "${tmp_data_dir}"
-
-	[ -n "${host_pci}" ] && sudo driverctl unset-override "${host_pci}"
+	# some devices fail if no previous driver being bound
+	[ -n "${host_pci}" ] && sudo driverctl --noprobe unset-override "${host_pci}"
 }
 
 host_pci_addr() {
